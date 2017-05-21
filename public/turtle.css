@@ -1,0 +1,21 @@
+.turtle {
+	border: 1px solid #333;
+	border-radius: 3px;
+	padding: 1em;
+}
+
+.turtles {
+	margin: 1em;
+	padding: 1em;
+	border-bottom: 1px solid green;
+}
+
+img {
+	width: 1em;
+	height: 1em;
+}
+
+img.turtle_pic {
+	width: 2em;
+	height: 2em;
+}

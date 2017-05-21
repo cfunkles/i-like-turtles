@@ -57,6 +57,60 @@ app.get('/api/turtles', function(req, res) {
 	});
 });
 
+// Send the details for one turtle. We send this from
+// the "templates" folder, since we want to change
+// the url (not just details.html, but /details/:id).
+// This is not a very elegant solution.
+app.get('/details/:id', function(req, res){
+	//user validation
+	if (!req.session.user) {
+		res.status(403);
+		res.send("forbidden");
+		return;
+	}
+	//__dirname means same directory as this running script
+	res.sendFile(__dirname + '/templates/details.html');
+});
+
+// Get details for one turtle. ajax call made from details.html file 
+app.get('/api/turtle/:id', function(req, res){
+	//user validation
+	if (!req.session.user) {
+		res.status(403);
+		res.send("forbidden");
+		return;
+	}
+	var turtleId = req.params.id;
+	db.collection('turtles').findOne({
+		_id: mongodb.ObjectId(turtleId)
+	//turtleDoc is the turtle object
+	}, function(err, turtleDoc) {
+		if (err) {
+			console.log(err);
+			res.status(500);
+			res.send('Error getting turtle details');
+			return;
+		}
+		// Merge in the user data for who submitted
+		// this turtle. We could also use mongo aggregation.
+		db.collection('users').findOne({
+			_id: mongodb.ObjectId(turtleDoc.submitter)
+		}, function(err, userDoc) {
+			if (err) {
+				console.log(err);
+				res.status(500);
+				res.send('Error getting turtle submitter details');
+				return;
+			}
+			if (userDoc) {
+				//add this property to the turtle doc
+				turtleDoc.submittedBy = userDoc.username;
+			}
+			res.send(turtleDoc);
+		});
+	});
+});
+
 // Post a new turtle
 app.post('/api/newTurtle', function(req, res) {
 	// todo: validate input
@@ -69,10 +123,12 @@ app.post('/api/newTurtle', function(req, res) {
 
 	// Add new turtle
 	db.collection('turtles').insertOne({
+		//the new Turtle object given from front end
 		name: req.body.name,
+		pic: req.body.pic,
 		color: req.body.color,
 		weapon: req.body.weapon,
-		pizza: 0,//is this cool being an integer? ***
+		pizza: 0,
 		submitter: req.session.user._id
 	}, function(err, data) {
 		if (err) {
@@ -85,17 +141,22 @@ app.post('/api/newTurtle', function(req, res) {
 	});
 });
 
+//post to buy turtle a pizza
 app.post('/api/buyPizza', function(req, res) {
+	//checks for authentication
 	if (!req.session.user) {
 		res.status(403);
 		res.send("forbidden");
 		return;
 	}
+	//buys that turtle a pizza based off of it's id
 	db.collection('turtles').updateOne(
+			//query by id
 		{
 			_id : mongodb.ObjectId(req.body._id)
 		},
 		{
+			//increment number of pizzas
 			$inc : {
 				pizza: 1
 			}
@@ -106,18 +167,22 @@ app.post('/api/buyPizza', function(req, res) {
 				res.status(500);
 				res.send("error");
 			}
+				//front end not doing anything with this.
 			res.send(data.toString());
 	});
 });
 
+//post to delete turtle
 app.post('/api/deleteTurtle', function(req, res) {
+	//checks for authentication
 	if (!req.session.user) {
 		res.status(403);
 		res.send("forbidden");
 		return;
 	}
-	db.collection('turtles').deleteMany({
-		_id : mongodb.ObjectId(req.body._id)
+	//delete turtle based off of id of turtle
+	db.collection('turtles').deleteOne({
+		_id : mongodb.ObjectId(req.body.id)
 	}, function(err, data) {
 		if (err) {
 			console.log(err);
@@ -125,8 +190,7 @@ app.post('/api/deleteTurtle', function(req, res) {
 			res.send("I live again for another day");
 			return;
 		}
-		console.log(data);
-		res.send("KOWA BUNGA DUDE");
+		res.send('kowa bunga dude!');
 	});
 });
 
@@ -143,7 +207,6 @@ app.post('/api/login', function(req, res) {
 			return;
 		}
 		// Otherwise, associate this cookie (session) with this user (object)
-		//ask about this and the scope of it? why don't we use req.expressSession? ***
 		req.session.user = {
 			_id : data._id,
 			username: data.username
